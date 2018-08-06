@@ -1,0 +1,46 @@
+{
+  "name": "data-store",
+  "version": "1.0.0",
+  "description": "Subscribable data object store",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "./node_modules/.bin/tsc",
+    "test": "mocha -r ts-node/register test/**/*-test.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ampersandtech/data-store.git"
+  },
+  "keywords": [
+    "data",
+    "store",
+    "watcher"
+  ],
+  "author": "Ampersand Technologies, Inc.",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ampersandtech/data-store/issues"
+  },
+  "homepage": "https://github.com/ampersandtech/data-store#readme",
+  "devDependencies": {
+    "@types/chai": "^4.1.4",
+    "@types/color": "^3.0.0",
+    "@types/mocha": "^5.2.5",
+    "@types/react": "~16.0.0",
+    "chai": "^4.1.2",
+    "mocha": "^5.2.0",
+    "react": "~16.0.0",
+    "ts-node": "^7.0.0",
+    "typescript": "^2.9.2",
+    "xml2js": "^0.4.19"
+  },
+  "dependencies": {
+    "amper-schema": "git+ssh://git@github.com:ampersandtech/amper-schema.git",
+    "amper-utils": "git+ssh://git@github.com:ampersandtech/amper-utils.git",
+    "blueimp-md5": "^2.10.0"
+  },
+  "peerDependencies": {
+    "react": "~16.0.0"
+  }
+}
