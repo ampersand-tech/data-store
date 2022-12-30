@@ -3,7 +3,23 @@
 */
 
 import * as DataStore from './dataStore';
+import { IDS_MASK } from './dataStore';
 
+import { deepCompare, isObject } from 'amper-utils/dist/objUtils';
+import { Stash } from 'amper-utils/dist/types';
+
+class ResolvablePromise<T> {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: any) => void;
+
+  constructor() {
+    this.promise = new Promise((resolve, reject) => {
+      this.resolve = resolve;
+      this.reject = reject;
+    });
+  }
+}
 interface WatchTree {
   _watches ?: Watch[];
   [key: string]: WatchTree | Watch[] | undefined;
@@ -30,7 +46,7 @@ interface Trigger {
   minPathDepth: number;
   watcher: Watcher;
   changes: Change[];
-  changesByPath: StashOf<Change>;
+  changesByPath: Stash<Change>;
 }
 
 export type TriggerCB = (watcher: Watcher, changes: Change[]) => void;
@@ -80,7 +96,7 @@ export type WatcherOpt = DataWatcher | Watcher | null;
 
 let gPendingTriggers: WatchTracker[] = [];
 let gWatchRafHandle: any = null;
-let gFlushWatchesCB: ErrDataCB<void> | null;
+let gFlushWatchesPromise: ResolvablePromise<void> | null;
 
 let gWatcherCount = 0;
 
@@ -123,9 +139,9 @@ export function addToPending(tracker?: WatchTracker) {
 
 export function triggerWatchesNextFrame() {
   if (!gPendingTriggers.length) {
-    const cb = gFlushWatchesCB;
-    gFlushWatchesCB = null;
-    cb && cb();
+    const p = gFlushWatchesPromise;
+    gFlushWatchesPromise = null;
+    p && p.resolve();
     return;
   }
 
@@ -139,23 +155,24 @@ export function triggerWatchesNextFrame() {
     const pendingTriggers = gPendingTriggers;
     gPendingTriggers = [];
     gWatchRafHandle = null;
-    const flushCB = gFlushWatchesCB;
-    gFlushWatchesCB = null;
+    const flushP = gFlushWatchesPromise;
+    gFlushWatchesPromise = null;
 
     triggerWatches(pendingTriggers, false);
-    flushCB && flushCB();
+    flushP && flushP.resolve();
   });
 }
 
-export function flushWatches(cb: ErrDataCB<void>) {
-  if (gFlushWatchesCB) {
-    return cb('only one flushWatches call is supported at a time');
+export async function flushWatches() {
+  if (gFlushWatchesPromise) {
+    throw ('only one flushWatches call is supported at a time');
   }
   if (!gPendingTriggers.length) {
-    return cb();
+    return;
   }
-  gFlushWatchesCB = cb;
+  const p = gFlushWatchesPromise = new ResolvablePromise<void>();
   triggerWatchesNextFrame();
+  await p.promise;
 }
 
 
@@ -195,7 +212,7 @@ function addToWatchTree(watchTree: WatchTree, path: string[], watch: Watch) {
 
 export function addWatchInternal(dataStore: DataStore.IDataStore, watcher: Watcher, path: string[], objMask?: any, defaults?: any, data?: any) {
   if (watcher.readOnly) {
-    Log.errorNoCtx('@conor', 'addWatchInternal called on readOnly watcher', {path: path});
+    console.error('addWatchInternal called on readOnly watcher', {path: path});
     return null;
   }
 
@@ -339,7 +356,7 @@ function walkWatchTree(
         continue;
       }
 
-      if (!watch.multiData && watch.objMask === Util.IDS_MASK) {
+      if (!watch.multiData && watch.objMask === IDS_MASK) {
         let idsChanged = changeTree._force;
         for (const key of changeTreeKeys) {
           if (changeTree[key]._force) {
@@ -377,7 +394,7 @@ function walkWatchTree(
 
     if (key === '_ids' || key === '_idxs') {
       if (changeTree._force) {
-        const dataKeys = dataStore.getData(null, path, Util.IDS_MASK);
+        const dataKeys = dataStore.getData(null, path, IDS_MASK);
         for (const subKey in dataKeys) {
           walkSubTree(key, changeTree, path.concat([subKey]));
         }
@@ -434,7 +451,7 @@ export function getTriggeredWatches(trackers: WatchTracker[], triggerImmediate, 
 
   // check if triggeredWatches data actually changed, and if so, record it in the 'changes' array on a trigger for the watcher
   const activeTriggers: Trigger[] = [];
-  const activeTriggersByID: StashOf<Trigger> = {};
+  const activeTriggersByID: Stash<Trigger> = {};
 
   let changeCount = 0;
   for (const triggered of triggeredWatches) {
@@ -449,7 +466,7 @@ export function getTriggeredWatches(trackers: WatchTracker[], triggerImmediate, 
     } else {
       // need to do a compare to make sure only changed fields in the mask trigger a change
       // also the replace action will trigger changes where they didn't necessarily happen
-      changed = !Util.deepCompare(watch.data, newData);
+      changed = !deepCompare(watch.data, newData);
       if (changed) {
         watch.data = newData;
       }
@@ -458,8 +475,8 @@ export function getTriggeredWatches(trackers: WatchTracker[], triggerImmediate, 
 
     const deltaTime = Date.now() - startTime;
     if (deltaTime > 50 && !gIsTestClient && !testInfo) {
-      Log.warnNoCtx('@conor', 'triggerWatches.slowClone',
-        { path: watch.path, mask: watch.objMask, dataKeys: Util.isObject(newData) ? Object.keys(newData) : newData });
+      console.warn('triggerWatches.slowClone',
+        { path: watch.path, mask: watch.objMask, dataKeys: isObject(newData) ? Object.keys(newData) : newData });
     }
 
     if (!changed) {
@@ -468,7 +485,7 @@ export function getTriggeredWatches(trackers: WatchTracker[], triggerImmediate, 
 
     if (!watch.watcher) {
       // invalid watch
-      Log.errorNoCtx('@conor', 'getTriggeredWatches.invalidWatcher', watch);
+      console.error('getTriggeredWatches.invalidWatcher', watch);
       continue;
     }
 
@@ -507,14 +524,12 @@ export function getTriggeredWatches(trackers: WatchTracker[], triggerImmediate, 
     return [];
   }
 
-  Log.debug('DataStore triggering ' + changeCount + ' watches');
-
   activeTriggers.sort(cmpActiveTriggers);
   return activeTriggers;
 }
 
-function triggerWatches(storeNames, triggerImmediate) {
-  const activeTriggers = getTriggeredWatches(storeNames, triggerImmediate, null);
+function triggerWatches(trackers: WatchTracker[], triggerImmediate: boolean) {
+  const activeTriggers = getTriggeredWatches(trackers, triggerImmediate, null);
 
   // call trigger callbacks for watchers that have changes
   for (let i = 0; i < activeTriggers.length; ++i) {
@@ -527,7 +542,7 @@ function triggerWatches(storeNames, triggerImmediate) {
   }
 }
 
-export function countWatches(obj) {
+export function countWatches(obj: Stash | null | undefined) {
   if (!obj || !obj._watches) {
     return 0;
   }

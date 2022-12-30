@@ -2,9 +2,10 @@
 * Copyright 2015-present Ampersand Technologies, Inc.
 */
 
-import * as ObjSchema from 'amper-schema/dist2017/objSchema';
-import * as Types from 'amper-schema/dist2017/types';
-import { Stash } from 'amper-utils/dist2017/types';
+import * as ObjSchema from 'amper-schema/dist/objSchema';
+import * as Types from 'amper-schema/dist/types';
+import { clone, isObject } from 'amper-utils/dist/objUtils';
+import { Stash } from 'amper-utils/dist/types';
 
 
 export type MergeAction = 'create'|'update'|'upsert'|'replace'|'remove'|'min'|'max';
@@ -130,7 +131,7 @@ export function typeCheckField(
       // allow fields that are not in the schema (FutureFeed)
       return getVal(mergeContext, change, fieldVal, existingVal);
     }
-    Log.errorNoCtx('@caller', logKey + ' fields contain a key that is not in the schema', {
+    console.error(logKey + ' fields contain a key that is not in the schema', {
       clientKey: mergeContext.clientKey,
       path: keys.join('/'),
       fieldValue: fieldVal,
@@ -143,19 +144,19 @@ export function typeCheckField(
       // valid value!
       return getVal(mergeContext, change, fieldVal, existingVal);
     }
-    Log.errorNoCtx('@conor', logKey + ' fields contain a value with a type that does not match the schema', {
+    console.error(logKey + ' fields contain a value with a type that does not match the schema', {
       clientKey: mergeContext.clientKey,
       path: keys.join('/'),
       fieldValue: fieldVal,
     });
     return existingVal;
   }
-  if (!Util.isObject(fieldVal) && !Array.isArray(fieldVal)) {
+  if (!isObject(fieldVal) && !Array.isArray(fieldVal)) {
     if (Types.isNullable(schema) && fieldVal === null) {
       // valid value!
       return getVal(mergeContext, change, fieldVal, existingVal);
     }
-    Log.errorNoCtx('@conor', logKey + ' fields contain a value with a type that does not match the schema', {
+    console.error(logKey + ' fields contain a value with a type that does not match the schema', {
       clientKey: mergeContext.clientKey,
       path: keys.join('/'),
       fieldValue: fieldVal,
@@ -212,7 +213,7 @@ function pathCreate(
       // allow intermediate subobject create without error if the path is not in the schema (FutureFeed)
       if (schema && !allowSubObjects && !isLastKey) {
         // otherwise warn and ignore update (this can happen if, for example, a user removes an object and then gets a feed update from someone else)
-        Log.warnNoCtx('@conor', 'ObjMerge.createMissingObjectInPath', {
+        console.warn('ObjMerge.createMissingObjectInPath', {
           clientKey: mergeContext.clientKey,
           path: keys.join('/'),
           missing: keys.slice(0, i + 1).join('/'),
@@ -225,7 +226,7 @@ function pathCreate(
       markChanged(mergeContext, change);
       change = null;
     } else if (isLastKey) {
-      Log.warnNoCtx('@conor', 'ObjMerge.createPathAlreadyExists', { clientKey: mergeContext.clientKey, path: keys.join('/') });
+      console.warn('ObjMerge.createPathAlreadyExists', { clientKey: mergeContext.clientKey, path: keys.join('/') });
       return;
     }
   }
@@ -234,13 +235,13 @@ function pathCreate(
     change = null;
   }
 
-  if (!Util.isObject(obj)) {
-    Log.errorNoCtx('@conor', 'ObjMerge.create on non-object path', { clientKey: mergeContext.clientKey, path: keys.join('/'), fields });
+  if (!isObject(obj)) {
+    console.error('ObjMerge.create on non-object path', { clientKey: mergeContext.clientKey, path: keys.join('/'), fields });
     return;
   }
 
-  if (!Util.isObject(fields)) {
-    Log.errorNoCtx('@conor', 'ObjMerge.create with non-object fields', { clientKey: mergeContext.clientKey, path: keys.join('/'), fields });
+  if (!isObject(fields)) {
+    console.error('ObjMerge.create with non-object fields', { clientKey: mergeContext.clientKey, path: keys.join('/'), fields });
     return;
   }
 
@@ -250,7 +251,7 @@ function pathCreate(
   } else {
     for (const id in fields) {
       const subChange = descendChangeTree(change, id);
-      obj[id] = typeCheckField(mergeContext, fields[id], obj[id], descendSchema(schema, id), keys.concat(id), subChange);
+      obj[id] = typeCheckField(mergeContext, fields[id], obj[id], ObjSchema.descendSchema(schema, id), keys.concat(id), subChange);
     }
   }
 }
@@ -276,7 +277,7 @@ function pathRemove(
 
     if (isUnset(obj)) {
       // ignore remove if path not in schema (FutureFeed)
-      schema && !allowSubObjects && Log.warnNoCtx('@conor', 'ObjMerge.removeMissingParent', {
+      schema && !allowSubObjects && console.warn('ObjMerge.removeMissingParent', {
         clientKey: mergeContext.clientKey,
         path: keys.join('/'),
         missing: keys.slice(0, i + 1).join('/'),
@@ -303,7 +304,7 @@ function pathRemove(
 }
 
 function isAllowedObject(field: any, schema: OptSchema) {
-  if (!Util.isObject(field)) {
+  if (!isObject(field)) {
     return true;
   }
   if (!Types.isType(schema)) {
@@ -316,7 +317,7 @@ function isAllowedObject(field: any, schema: OptSchema) {
 }
 
 function isLeafUpdate(schema: OptSchema, fields: any, obj: any) {
-  return Types.isType(schema) || !Util.isObject(fields) || !Util.isObject(obj);
+  return Types.isType(schema) || !isObject(fields) || !isObject(obj);
 }
 
 function pathUpdate(
@@ -356,7 +357,7 @@ function pathUpdate(
         continue;
       }
       if (!isUpsert) {
-        Log.warnNoCtx('@conor', 'ObjMerge.updateMissingPath', {clientKey: mergeContext.clientKey, path: keys.join('/'), fields});
+        console.warn('ObjMerge.updateMissingPath', {clientKey: mergeContext.clientKey, path: keys.join('/'), fields});
         return;
       }
 
@@ -387,7 +388,7 @@ function pathUpdate(
 
   for (const id in fields) {
     if (!allowSubObjects && !isAllowedObject(fields[id], ObjSchema.descendSchema(schema, id))) {
-      Log.errorNoCtx('@conor', 'ObjMerge.update fields contain a sub-object, not allowed', {
+      console.error('ObjMerge.update fields contain a sub-object, not allowed', {
         clientKey: mergeContext.clientKey,
         path: keys.join('/'),
         field: id,
@@ -436,6 +437,6 @@ export function applyAction(
   allowSubObjects: boolean,
   changeTree?: OptChangeTree,
 ) {
-  const safeFields = Util.clone(fields);
+  const safeFields = clone(fields);
   return applyActionNoClone(rootObj, action, keys, safeFields, clientKey, options, allowSubObjects, changeTree);
 }

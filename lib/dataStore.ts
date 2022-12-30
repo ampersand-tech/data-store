@@ -7,14 +7,15 @@ import * as DataStoreWatch from './dataStoreWatch';
 import { DataWatcher, WatchTracker, Watcher, WatcherOpt } from './dataStoreWatch';
 import * as ObjMerge from './objMerge';
 
-import * as ObjSchema from 'amper-schema/dist2017/objSchema';
-import * as Types from 'amper-schema/dist2017/types';
-import * as ObjUtils from 'amper-utils/dist2017/objUtils';
+import { withError } from 'amper-promise-utils';
+import * as ObjSchema from 'amper-schema/dist/objSchema';
+import { Schema } from 'amper-schema/dist/types';
+import * as ObjUtils from 'amper-utils/dist/objUtils';
 
 
 export { DataWatcher, Watcher, WatcherHandle, WatcherOpt } from './dataStoreWatch';
 
-import { Stash, StashOf } from 'amper-utils/dist2017/types';
+import { Stash } from 'amper-utils/dist/types';
 
 const CHECK_IMMUTABLE_MASK = process.env.NODE_ENV === 'development';
 const CHECK_UNMASKED_SIZE = process.env.NODE_ENV === 'development';
@@ -43,14 +44,31 @@ const VALID_OPTIONS = ObjUtils.objectMakeImmutable({
   futureFeed: 1,
 });
 export interface Options {
-  schema ?: Types.Schema | null;
+  schema ?: Schema | null;
   isServerSynced ?: boolean;
   allowSubobjectCreate ?: boolean;
   persistType ?: 'window' | 'local';
   futureFeed ?: boolean;
 }
 
-const gDataStores: StashOf<DataStoreInternal> = {};
+export const IDS_MASK = ObjUtils.objectMakeImmutable({ _ids: 1 });
+export const ALL_MASK = '*' as '*';
+
+function cloneWithMask(obj, objMask, defaults) {
+  if (objMask === IDS_MASK && obj && typeof obj === 'object') {
+    // fast path for IDS_MASK
+    const out = {};
+    for (const key in obj) {
+      out[key] = 1;
+    }
+    Object.freeze(out);
+    return out;
+  }
+
+  return ObjUtils.cloneSomeFieldsImmutable(obj, objMask, defaults);
+}
+
+const gDataStores: Stash<DataStoreInternal> = {};
 let gDataLoaded = false;
 
 let gWatchTracker: DataStoreWatch.WatchTracker;
@@ -174,41 +192,33 @@ export function registerDataStore(theModule, storeName: string, options ?: Optio
   gDataStores[storeName] = store;
 }
 
-interface LoadInfo {
-  modified: {};
-  failed: {};
-  noData: {};
-}
-
-export async function loadDataStores(): Promise<Stash> {
+export async function loadDataStores(): Promise<DataStorePersist.LoadInfo> {
   if (gDataLoaded) {
     throw new Error('already loaded');
   }
   gDataLoaded = true;
 
-  const loadInfo = {
+  const loadInfo: DataStorePersist.LoadInfo = {
     modified: {},
     failed: {},
     noData: {},
   };
 
-  windowReadAll(function(err1, windowStorage) {
-    if (err1) {
-      console.error('loadDataStores.windowReadAll.error', {err: err1});
-      windowStorage = null;
-    }
+  const { err, data: windowStorage } = await withError(windowReadAll());
+  if (err) {
+    console.error('loadDataStores.windowReadAll.error', {err});
+  }
 
-    for (const storeName in gDataStores) {
-      const store = gDataStores[storeName];
-      if (store.options.persistType) {
-        await DataStorePersist.loadDataStore(store, windowStorage, loadInfo);
-      }
+  for (const storeName in gDataStores) {
+    const store = gDataStores[storeName];
+    if (store.options.persistType) {
+      await DataStorePersist.loadDataStore(store, windowStorage, loadInfo);
     }
+  }
 
-    DataStorePersist.initBroadcastHandlers();
-    DataStoreWatch.triggerWatchesNextFrame();
-    return (loadInfo);
-  });
+  DataStorePersist.initBroadcastHandlers();
+  DataStoreWatch.triggerWatchesNextFrame();
+  return loadInfo;
 }
 
 export function resetToDefaults(path: string[]) {
@@ -222,7 +232,7 @@ export function resetToDefaults(path: string[]) {
     console.error('store cannot resetToDefaults without schema', { storeName: storeName });
     return;
   }
-  let schema: Types.Schema | null = store.options.schema;
+  let schema: Schema | null = store.options.schema;
   if (path.length > 1) {
     schema = ObjSchema.getSchemaForPath(schema, path.slice(1));
   }
@@ -230,11 +240,11 @@ export function resetToDefaults(path: string[]) {
   changeData('replace', path, ObjSchema.getDefaultValuesForSchema(schema));
 }
 
-export function resetStoreToDefaultsAsInternal(storeName: string, cb ?: ErrDataCB<void>) {
+export async function resetStoreToDefaultsAsInternal(storeName: string) {
   const store = gDataStores[storeName];
   if (!store) {
     console.error('DataStore.resetStoreToDefaultsAsInternal called with unknown storeName', { storeName: storeName });
-    return cb && cb();
+    return;
   }
   const defaults = store.options.schema ? ObjSchema.getDefaultValuesForSchema(store.options.schema) : {};
   if (store.options.isServerSynced) {
@@ -245,9 +255,7 @@ export function resetStoreToDefaultsAsInternal(storeName: string, cb ?: ErrDataC
   store.clientChangeTree = null;
 
   if (store.options.persistType) {
-    DataStorePersist.clearPersistedData(store, cb);
-  } else {
-    cb && cb();
+    await DataStorePersist.clearPersistedData(store);
   }
 }
 
@@ -308,12 +316,12 @@ export function getDataNoOverlay(watcherIn: WatcherOpt, path: string[], objMask 
   }
 
   const obj = ObjUtils.objectGetFromPath(store.data, path.slice(1));
-  const data = ObjUtils.cloneWithMask(obj, objMask, defaults);
+  const data = cloneWithMask(obj, objMask, defaults);
 
   if (!objMask && CHECK_UNMASKED_SIZE) {
     const count = ObjUtils.fieldCount(data);
     if (count > MAX_CLONE_FIELDS) {
-      Log.devError('@caller', 'DataStore.getData called on a large object', { path: path.join('/'), fieldCount: count });
+      console.warn('DataStore.getData called on a large object', { path: path.join('/'), fieldCount: count });
     }
   }
 
@@ -422,12 +430,10 @@ export function resetClientToServer(storeName: string, force = false) {
   DataStoreWatch.addToPending(watchTracker);
 }
 
-function resetAll(cb: ErrDataCB<void>) {
-  let jobs = new Jobs.Queue();
+async function resetAll() {
   for (const storeName in gDataStores) {
-    jobs.add(resetStoreToDefaultsAsInternal, storeName);
+    await resetStoreToDefaultsAsInternal(storeName);
   }
-  jobs.drain((err) => cb(err));
 }
 
 function changeServerDataInternal(store: DataStoreInternal, action: Action, path: string[], fields, feedCount ?: number) {
@@ -612,7 +618,6 @@ function triggerCodeWatch(watcher: Watcher, changes: DataStoreWatch.Change[]) {
     return;
   }
   for (let i = 0; i < changes.length; ++i) {
-    Log.debug('triggerCodeWatch', changes[i].path);
     watcher._codeWatchCB(changes[i].data);
   }
 }
