@@ -139,18 +139,18 @@ acorn@^8.4.1:
   integrity sha512-7zFpHzhnqYKrkYdUjF1HI1bzd0VygEGX8lFk4k5zVMqHEoES+P+7TKI+EvLO9WVMJ8eekdO0aDEK044xTXwPPA==
 
 "amper-promise-utils@git+ssh://git@github.com:ampersand-tech/amper-promise-utils.git":
-  version "1.1.0"
-  resolved "git+ssh://git@github.com:ampersand-tech/amper-promise-utils.git#f3566e6d1f6942d9a3d9f3dbc80f4075345757ac"
+  version "1.2.0"
+  resolved "git+ssh://git@github.com:ampersand-tech/amper-promise-utils.git#ffee9ece86fd310aa389f94bc70f3e185eacb15a"
 
 "amper-schema@git+ssh://git@github.com:ampersand-tech/amper-schema.git":
-  version "1.1.0"
-  resolved "git+ssh://git@github.com:ampersand-tech/amper-schema.git#83f7ac9a2e6e887667cf2786235096ab57c9ffc0"
+  version "1.1.1"
+  resolved "git+ssh://git@github.com:ampersand-tech/amper-schema.git#b23eb8e67c26575e300ca072e1764380f87f450a"
   dependencies:
     amper-utils "git+ssh://git@github.com:ampersand-tech/amper-utils.git"
 
 "amper-utils@git+ssh://git@github.com:ampersand-tech/amper-utils.git":
-  version "1.1.1"
-  resolved "git+ssh://git@github.com:ampersand-tech/amper-utils.git#843d7e7a279fbcbf4ebee796d8be68be63ee8b57"
+  version "1.2.0"
+  resolved "git+ssh://git@github.com:ampersand-tech/amper-utils.git#91aff27757f626c671d72967e52fcc3ab238d5fb"
 
 arg@^4.1.0:
   version "4.1.3"

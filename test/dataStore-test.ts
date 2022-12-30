@@ -17,9 +17,11 @@ import { describe, it } from 'mocha';
 import * as sinon from 'sinon';
 
 describe('DataStore', function() {
+  let gFireAnimationFrameTriggers = false;
+
   const fileStore = new RamFileStore();
-  let gFireAnimationFrameTriggers;
   DataStorePersist.init(fileStore);
+
   DataStore.init({
     requestAnimationFrame: function(cb) {
       gFireAnimationFrameTriggers && setTimeout(cb, 0);
@@ -76,12 +78,10 @@ describe('DataStore', function() {
         bar: true,
         subMap: {},
       });
-      expect(watchTracker.changeTree).to.deep.equal({
-        TestStore: {
-          test: {
-            foo1: {
-              _force: true,
-            },
+      expect(watchTracker.changeTree.TestStore).to.deep.equal({
+        test: {
+          foo1: {
+            _force: true,
           },
         },
       });
@@ -105,15 +105,13 @@ describe('DataStore', function() {
         bar: true,
         subMap: {},
       });
-      expect(watchTracker.changeTree).to.deep.equal({
-        TestStore: {
-          test: {
-            foo1: {
-              _force: true,
-            },
-            foo2: {
-              _force: true,
-            },
+      expect(watchTracker.changeTree.TestStore).to.deep.equal({
+        test: {
+          foo1: {
+            _force: true,
+          },
+          foo2: {
+            _force: true,
           },
         },
       });
@@ -124,15 +122,13 @@ describe('DataStore', function() {
         bar: false,
         subMap: {},
       });
-      expect(watchTracker.changeTree).to.deep.equal({
-        TestStore: {
-          test: {
-            foo1: {
-              _force: true,
-            },
-            foo2: {
-              _force: true,
-            },
+      expect(watchTracker.changeTree.TestStore).to.deep.equal({
+        test: {
+          foo1: {
+            _force: true,
+          },
+          foo2: {
+            _force: true,
           },
         },
       });
@@ -143,22 +139,20 @@ describe('DataStore', function() {
         bar: true,
         subMap: {},
       });
-      expect(watchTracker.changeTree).to.deep.equal({
-        TestStore: {
-          test: {
-            foo1: {
-              _force: true,
-            },
-            foo2: {
-              _force: true,
-            },
+      expect(watchTracker.changeTree.TestStore).to.deep.equal({
+        test: {
+          foo1: {
+            _force: true,
+          },
+          foo2: {
+            _force: true,
           },
         },
       });
 
       const fileData = fileStore.test_getData();
       expect(Object.keys(fileData).length).to.equal(4);
-      DataStore.resetStoreToDefaultsAsInternal('TestStore');
+      await DataStore.resetStoreToDefaultsAsInternal('TestStore');
       expect(fileStore.test_getData()).to.deep.equal({});
       expect(storeData).to.deep.equal({test: {}});
 
@@ -181,7 +175,7 @@ describe('DataStore', function() {
         'dsData/TestStore': '{"data":{"test":{"foo1":{"foo":12,"bar":true,"subMap":{}},"foo2":{"foo":12,"bar":true,"subMap":{}}}},"lastMerge":{"timestamp":0,"count":4,"sessionIdx":0,"windowNumber":0}}',
       });
 
-      for (const storeName in watchTracker.changeTree) {
+      for (const storeName in watchTracker.changeTree.TestStore) {
         watchTracker.changeTree[storeName] = {};
       }
     });
@@ -335,16 +329,14 @@ describe('DataStore', function() {
 
       DataStore.updateData(['TestStore', 'test', 'foo8', 'foo'], 77);
 
-      expect(watchTracker.changeTree).to.deep.equal({
-        TestStore: {
-          test: {
-            foo9: {
-              _force: true,
-            },
-            foo10: { _force: true },
-            foo8: {
-              foo: { _force: true },
-            },
+      expect(watchTracker.changeTree.TestStore).to.deep.equal({
+        test: {
+          foo9: {
+            _force: true,
+          },
+          foo10: { _force: true },
+          foo8: {
+            foo: { _force: true },
           },
         },
       });
@@ -393,11 +385,9 @@ describe('DataStore', function() {
       expect(currentIDs).to.exist;
 
       DataStore.createData(['TestStore', 'test', 'foo15'], { foo: 91 });
-      expect(watchTracker.changeTree).to.deep.equal({
-        TestStore: {
-          test: {
-            foo15: { _force: true },
-          },
+      expect(watchTracker.changeTree.TestStore).to.deep.equal({
+        test: {
+          foo15: { _force: true },
         },
       });
 
@@ -423,11 +413,9 @@ describe('DataStore', function() {
       });
 
       DataStore.updateData(['TestStore', 'test', 'foo15'], { foo: 92 }); // does not create a change
-      expect(watchTracker.changeTree).to.deep.equal({
-        TestStore: {
-          test: {
-            foo15: { foo: { _force: true } },
-          },
+      expect(watchTracker.changeTree.TestStore).to.deep.equal({
+        test: {
+          foo15: { foo: { _force: true } },
         },
       });
 
@@ -452,30 +440,24 @@ describe('DataStore', function() {
       expect(currentCodeWatchIDs).to.exist;
 
       DataStore.createData(['TestStore', 'test', 'foo13'], { foo: 91 });
-      expect(watchTracker.changeTree).to.deep.equal({
-        TestStore: {
-          test: {
-            foo13: { _force: true },
-          },
+      expect(watchTracker.changeTree.TestStore).to.deep.equal({
+        test: {
+          foo13: { _force: true },
         },
       });
 
       DataStore.updateData(['TestStore', 'test', 'foo13'], { foo: 92 }); // does not create a change
-      expect(watchTracker.changeTree).to.deep.equal({
-        TestStore: {
-          test: {
-            foo13: { _force: true },
-          },
+      expect(watchTracker.changeTree.TestStore).to.deep.equal({
+        test: {
+          foo13: { _force: true },
         },
       });
 
       DataStore.createData(['TestStore', 'test', 'foo14'], { foo: 93 });
-      expect(watchTracker.changeTree).to.deep.equal({
-        TestStore: {
-          test: {
-            foo13: { _force: true },
-            foo14: { _force: true },
-          },
+      expect(watchTracker.changeTree.TestStore).to.deep.equal({
+        test: {
+          foo13: { _force: true },
+          foo14: { _force: true },
         },
       });
 

@@ -17,7 +17,7 @@ interface WatchTree {
 export interface WatchTracker {
   id: string;
   dataStore: DataStore.IDataStore;
-  changeTree: {};
+  changeTree: Stash;
   watchTree: WatchTree;
   watchTreeImmediate: WatchTree;
 }

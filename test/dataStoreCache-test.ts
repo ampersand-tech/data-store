@@ -5,7 +5,7 @@
 import * as DataStore from '../lib/dataStore';
 import { DataStoreCache } from '../lib/dataStoreCache';
 
-import { ResolvablePromise } from 'amper-promise-utils/dist/index';
+import { ResolvablePromise, sleep } from 'amper-promise-utils/dist/index';
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
@@ -51,10 +51,11 @@ describe('DataStoreCache', function() {
     expect(fetchCalls[0].key).to.equal('cmd');
     expect(fetchCalls[0].params).to.deep.equal({ foo: 'a', bar: 'b' });
     fetchCalls[0].promise.resolve(42);
+    await sleep(0);
 
     const finalRes = gCache.getDataWithError(null, 'cmd', { foo: 'a', bar: 'b' });
-    expect(finalRes.data).to.equal(42);
     expect(finalRes.err).to.equal(undefined);
+    expect(finalRes.data).to.equal(42);
     expect(fetchCalls.length).to.equal(1);
   });
 
@@ -67,10 +68,11 @@ describe('DataStoreCache', function() {
     expect(fetchCalls[0].key).to.equal('cmd');
     expect(fetchCalls[0].params).to.deep.equal({ foo: 'a', bar: 'b' });
     fetchCalls[0].promise.reject(new Error('whoops'));
+    await sleep(0);
 
     const finalRes = gCache.getDataWithError(null, 'cmd', { foo: 'a', bar: 'b' });
-    expect(finalRes.data).to.equal(undefined);
     expect(finalRes.err).to.equal('whoops');
+    expect(finalRes.data).to.equal(undefined);
     expect(fetchCalls.length).to.equal(1);
   });
 
@@ -87,10 +89,11 @@ describe('DataStoreCache', function() {
     expect(fetchCalls[0].key).to.equal('cmd');
     expect(fetchCalls[0].params).to.deep.equal({ foo: 'a', bar: 'b' });
     fetchCalls[0].promise.resolve(42);
+    await sleep(0);
 
     const finalRes = gCache.getDataWithError(null, 'cmd', { foo: 'a', bar: 'b' });
-    expect(finalRes.data).to.equal(42);
     expect(finalRes.err).to.equal(undefined);
+    expect(finalRes.data).to.equal(42);
     expect(fetchCalls.length).to.equal(1);
   });
 
@@ -103,6 +106,7 @@ describe('DataStoreCache', function() {
     expect(fetchCalls[0].key).to.equal('cmd');
     expect(fetchCalls[0].params).to.deep.equal({ foo: 'a', bar: 'b' });
     fetchCalls[0].promise.resolve(42);
+    await sleep(0);
 
     const res2 = gCache.getDataWithError(null, 'cmd', { foo: 'a', bar: 'b' });
     expect(res2.data).to.equal(42);
@@ -119,10 +123,11 @@ describe('DataStoreCache', function() {
     expect(fetchCalls[1].key).to.equal('cmd');
     expect(fetchCalls[1].params).to.deep.equal({ foo: 'a', bar: 'b' });
     fetchCalls[1].promise.resolve(47);
+    await sleep(0);
 
     const finalRes = gCache.getDataWithError(null, 'cmd', { foo: 'a', bar: 'b' });
-    expect(finalRes.data).to.equal(47);
     expect(finalRes.err).to.equal(undefined);
+    expect(finalRes.data).to.equal(47);
     expect(fetchCalls.length).to.equal(2);
   });
 
@@ -135,6 +140,7 @@ describe('DataStoreCache', function() {
     expect(fetchCalls[0].key).to.equal('cmd');
     expect(fetchCalls[0].params).to.deep.equal({ foo: 'a', bar: 'b' });
     fetchCalls[0].promise.resolve(42);
+    await sleep(0);
 
     const res2 = gCache.getDataWithError(null, 'cmd', { foo: 'a', bar: 'b' });
     expect(res2.data).to.equal(42);
@@ -151,10 +157,11 @@ describe('DataStoreCache', function() {
     expect(fetchCalls[1].key).to.equal('cmd');
     expect(fetchCalls[1].params).to.deep.equal({ foo: 'a', bar: 'b' });
     fetchCalls[1].promise.resolve(47);
+    await sleep(0);
 
     const finalRes = gCache.getDataWithError(null, 'cmd', { foo: 'a', bar: 'b' });
-    expect(finalRes.data).to.equal(47);
     expect(finalRes.err).to.equal(undefined);
+    expect(finalRes.data).to.equal(47);
     expect(fetchCalls.length).to.equal(2);
   });
 });
