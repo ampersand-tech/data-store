@@ -5,8 +5,11 @@
 import * as DataStore from './dataStore';
 import { Action, DataStoreInternal } from './dataStore';
 
-import * as ObjSchema from 'amper-schema/dist2017/objSchema';
-import { Stash, StashOf } from 'amper-utils/dist2017/types';
+import { withError } from 'amper-promise-utils/dist/index';
+import * as ObjSchema from 'amper-schema/dist/objSchema';
+import { isObject } from 'amper-utils/dist/objUtils';
+import { Stash } from 'amper-utils/dist/types';
+import { timeKey } from 'amper-utils/dist/uuidUtils';
 import * as md5 from 'blueimp-md5';
 
 interface MergeCmpData {
@@ -24,16 +27,42 @@ interface MergeData extends MergeCmpData {
   fields: any;
 }
 
-interface LoadInfo {
-  modified: StashOf<number>;
-  failed: StashOf<string>;
-  noData: StashOf<boolean>;
+export interface LoadInfo {
+  modified: Stash<number>;
+  failed: Stash<string>;
+  noData: Stash<boolean>;
 }
 
-let FileStore: any;
+export interface FindDirData<T> {
+  paths: string[];
+  objects: T[];
+  errors?: any;
+}
 
-export function init(FileStoreIn) {
+export interface IFileStore {
+  find<T>(key: string): Promise<T|undefined>;
+  findDir<T>(key: string): Promise<FindDirData<T>>;
+  update(key: string, data: any): Promise<void>;
+  remove(key: string): Promise<void>;
+  removeList(keys: string[]): Promise<void>;
+  removeDir(key: string): Promise<void>;
+  removeAllExcept(exceptKeys: string[]): Promise<void>;
+
+  windowReadAll(): Promise<Stash>;
+  windowWrite(key: string, data: any): Promise<void>;
+
+  registerLocalMessageHandler: (msgName: string, handler: (msg: string, payload: any) => void) => void;
+  localBroadcast: (msgName: string, payload: any) => void;
+}
+
+let FileStore: IFileStore;
+
+export function init(FileStoreIn: IFileStore) {
   FileStore = FileStoreIn;
+}
+
+export function getFileStore() {
+  return FileStore;
 }
 
 function cmpMerges(a: MergeCmpData, b: MergeCmpData) {
@@ -49,7 +78,7 @@ function cmpMerges(a: MergeCmpData, b: MergeCmpData) {
   return a.count - b.count;
 }
 
-function validateTable(store: DataStoreInternal, data: any, loadInfo: LoadInfo) {
+async function validateTable(store: DataStoreInternal, data: any, loadInfo: LoadInfo) {
   if (!store.options.schema) {
     return true;
   }
@@ -60,10 +89,7 @@ function validateTable(store: DataStoreInternal, data: any, loadInfo: LoadInfo) 
   }
 
   // loaded data does not validate against schema, do not use it
-  Log.infoNoCtx('Invalid DS data found, clearing', { store: store.storeName, err: validationErr });
-  Metrics.recordInSet(Metrics.NO_DIMS, Metrics.SET.INTERNAL.DS, 'persist.invalidData', { store: store.storeName });
-
-  FileStore.remove('dsData/' + store.storeName);
+  await FileStore.remove('dsData/' + store.storeName);
 
   loadInfo.failed[store.storeName] = 'validation';
   delete loadInfo.modified[store.storeName];
@@ -71,26 +97,24 @@ function validateTable(store: DataStoreInternal, data: any, loadInfo: LoadInfo) 
   return false;
 }
 
-function cleanupFiles(files: Stash, cb: ErrDataCB<any>) {
+async function cleanupFiles(files: FindDirData<any>) {
   if (!files) {
-    return cb();
+    return;
   }
   let removePaths = files.paths;
   if (files.errors) {
     removePaths = removePaths.concat(Object.keys(files.errors));
   }
 
-  FileStore.removeList(removePaths, function() {
-    cb();
-  });
+  await FileStore.removeList(removePaths);
 }
 
-function validateAndApplyData(store: DataStoreInternal, loadedData: any, loadInfo: LoadInfo) {
+async function validateAndApplyData(store: DataStoreInternal, loadedData: any, loadInfo: LoadInfo) {
   if (!loadedData) {
     loadInfo.noData[store.storeName] = true;
     return;
   }
-  if (validateTable(store, loadedData, loadInfo)) {
+  if (await validateTable(store, loadedData, loadInfo)) {
     if (store.options.isServerSynced) {
       DataStore.changeServerDataAsInternal('replace', [store.storeName], loadedData, undefined);
     }
@@ -98,13 +122,9 @@ function validateAndApplyData(store: DataStoreInternal, loadedData: any, loadInf
   }
 }
 
-function mergeChanges(store: DataStoreInternal, files: Stash, loadInfo: LoadInfo, cb: ErrDataCB<any>) {
+async function mergeChanges(store: DataStoreInternal, files: FindDirData<any>, loadInfo: LoadInfo) {
   const mergeList: MergeData[] = files.objects;
   mergeList.sort(cmpMerges);
-
-  if (mergeList.length) {
-    Log.debug('applying merge files to ' + store.storeName + ':', mergeList);
-  }
 
   // find first merge to apply
   let startIdx = 0;
@@ -149,69 +169,65 @@ function mergeChanges(store: DataStoreInternal, files: Stash, loadInfo: LoadInfo
     };
   }
 
-  if (!loadInfo.modified[store.storeName]) {
-    return cleanupFiles(files, cb);
+  if (loadInfo.modified[store.storeName]) {
+    const dataToWrite = {
+      data: DataStore.getDataUnsafe([store.storeName]),
+      lastMerge: store.lastMerge,
+    };
+
+    await FileStore.update('dsData/' + store.storeName, dataToWrite);
   }
 
-  const dataToWrite = {
-    data: DataStore.getDataUnsafe([store.storeName]),
-    lastMerge: store.lastMerge,
-  };
-
-  FileStore.update('dsData/' + store.storeName, dataToWrite, function(err) {
-    if (err) { return cb(err); }
-    cleanupFiles(files, cb);
-  });
+  await cleanupFiles(files);
 }
 
-function loadDataStoreInternal(store: DataStoreInternal, windowStorage: Stash, loadInfo: LoadInfo, cb: ErrDataCB<any>) {
+async function loadDataStoreInternal(store: DataStoreInternal, windowStorage: Stash, loadInfo: LoadInfo) {
   if (store.options.persistType === 'window') {
-    validateAndApplyData(store, windowStorage && windowStorage[store.storeName], loadInfo);
-    return cb();
+    await validateAndApplyData(store, windowStorage && windowStorage[store.storeName], loadInfo);
+    return;
   }
 
-  FileStore.find('dsData/' + store.storeName, function(err1, loadedData) {
-    loadedData = loadedData || {};
+  let { err: loadError, data: loadedData } = await withError(FileStore.find<any>('dsData/' + store.storeName));
+  loadedData = loadedData || {};
 
-    if (err1) {
-      Log.infoNoCtx('Failed to load DS data, clearing', { store: store.storeName, err: err1 });
-      Metrics.recordInSet(Metrics.NO_DIMS, Metrics.SET.INTERNAL.DS, 'dsDataLoadFailed', { store: store.storeName });
+  if (loadError) {
+    console.log('Failed to load DS data, clearing', { store: store.storeName, err: loadError });
 
-      loadInfo.failed[store.storeName] = 'dsLoad';
-      delete loadInfo.modified[store.storeName];
-    } else {
-      validateAndApplyData(store, loadedData.data, loadInfo);
-      store.lastMerge = loadedData.lastMerge;
-    }
+    loadInfo.failed[store.storeName] = 'dsLoad';
+    delete loadInfo.modified[store.storeName];
+  } else {
+    validateAndApplyData(store, loadedData.data, loadInfo);
+    store.lastMerge = loadedData.lastMerge;
+  }
 
-    FileStore.findDir('dsMerges/' + store.storeName + '/', function(err2, files) {
-      if (loadInfo.failed[store.storeName]) {
-        // store data failed to load, delete the merge files and abort
-        return cleanupFiles(files, cb);
-      }
+  let { err: err2, data: files } = await withError(FileStore.findDir<any>('dsMerges/' + store.storeName + '/'));
+  files = files || { paths: [], objects: [] };
+  if (loadInfo.failed[store.storeName]) {
+    // store data failed to load, delete the merge files and abort
+    return await cleanupFiles(files);
+  }
 
-      err2 = err2 || files.errors;
-      if (err2) {
-        // merges failed to load, reset table and bail out
-        Log.warnNoCtx('@conor', 'dsMergeLoadFailed', err2);
-        loadInfo.failed[store.storeName] = 'mergeLoad';
-        DataStore.resetStoreToDefaultsAsInternal(store.storeName);
-        return cleanupFiles(files, cb);
-      }
+  err2 = err2 || files.errors;
+  if (err2) {
+    // merges failed to load, reset table and bail out
+    console.warn('dsMergeLoadFailed', err2);
+    loadInfo.failed[store.storeName] = 'mergeLoad';
+    DataStore.resetStoreToDefaultsAsInternal(store.storeName);
+    return await cleanupFiles(files);
+  }
 
-      mergeChanges(store, files, loadInfo, cb);
-    });
-  });
+  await mergeChanges(store, files, loadInfo);
 }
 
-export function loadDataStore(store: DataStoreInternal, windowStorage: Stash, loadInfo: LoadInfo, cb: ErrDataCB<any>) {
-  loadDataStoreInternal(store, windowStorage, loadInfo, function(err) {
+export async function loadDataStore(store: DataStoreInternal, windowStorage: Stash, loadInfo: LoadInfo) {
+  try {
+    await loadDataStoreInternal(store, windowStorage, loadInfo);
+  } finally {
     if (store.options.isServerSynced) {
       store.clientChangeTree = null;
       store.serverChangeTree = {};
     }
-    cb(err);
-  });
+  }
 }
 
 function receiveLocalMerge(_msg: string, mergeData: MergeData) {
@@ -220,7 +236,6 @@ function receiveLocalMerge(_msg: string, mergeData: MergeData) {
     // fixup old merges
     path.unshift((mergeData as Stash).store);
   }
-  Log.debug('receiveLocalMerge', { action: mergeData.action, path: path });
   if (DataStore.hasDataStore(path[0])) {
     DataStore.changeDataAsInternal(mergeData.action, path, mergeData.fields);
   }
@@ -232,7 +247,7 @@ export function initBroadcastHandlers() {
 
 
 function makeObjHashKey(obj) {
-  if (!Util.isObject(obj)) {
+  if (!isObject(obj)) {
     return '1';
   }
   const keys = Object.keys(obj).sort();
@@ -246,16 +261,16 @@ export function persistChange(store: DataStoreInternal, action: Action, path: st
     return;
   }
 
-  let timeKey: string;
+  let tk: string;
   if (feedCount !== undefined) {
-    timeKey = [feedCount, 0, 0, 0].join('.');
+    tk = [feedCount, 0, 0, 0].join('.');
   } else {
-    timeKey = Util.timeKey();
+    tk = timeKey();
   }
-  const splitTimeKey = timeKey.split('.');
+  const splitTimeKey = tk.split('.');
 
   const mergeData: MergeData = {
-    timeKey: timeKey,
+    timeKey: tk,
     timestamp: Number(splitTimeKey[0]) || 0,
     count: Number(splitTimeKey[1]) || 0,
     sessionIdx: Number(splitTimeKey[2]) || 0,
@@ -266,29 +281,24 @@ export function persistChange(store: DataStoreInternal, action: Action, path: st
     fields: fields,
   };
 
-  let hash = timeKey;
+  let hash = tk;
   if (action === 'update' || action === 'upsert') {
     // for merge updates, hash the field keys so we overwrite previous merges that are now superseded
     hash = makeObjHashKey(fields);
   }
   const fileName = action + '_' + path.join('_') + '_' + hash;
-  FileStore.update('dsMerges/' + store.storeName + '/' + fileName, mergeData, function() {
+  FileStore.update('dsMerges/' + store.storeName + '/' + fileName, mergeData).then(() => {
     if (!store.options.isServerSynced) {
       FileStore.localBroadcast('dsMerge', mergeData);
     }
-  });
+  }).catch(() => {});
 }
 
-export function clearPersistedData(store: DataStoreInternal, cb?: ErrDataCB<any>) {
+export async function clearPersistedData(store: DataStoreInternal) {
   if (store.options.persistType === 'window') {
-    FileStore.windowWrite(store.storeName, null, cb);
-    return;
+    await FileStore.windowWrite(store.storeName, null);
+  } else {
+    await FileStore.remove('dsData/' + store.storeName);
+    await FileStore.removeDir('dsMerges/' + store.storeName + '/');
   }
-
-  const jobs = new Jobs.Queue();
-  jobs.add(FileStore.remove, 'dsData/' + store.storeName);
-  jobs.add(FileStore.removeDir, 'dsMerges/' + store.storeName + '/');
-  jobs.drain(function(err) {
-    cb && cb(err);
-  });
 }

@@ -2,9 +2,12 @@
 * Copyright 2018-present Ampersand Technologies, Inc.
 */
 
-import * as DataStore from 'overlib/shared/dataStore';
-import * as Log from 'overlib/shared/logCommon';
-import * as Util from 'overlib/shared/util';
+import * as DataStore from './dataStore';
+
+import { withError } from 'amper-promise-utils/dist/index';
+import { errorToString } from 'amper-utils/dist/errorUtils';
+import * as ObjUtils from 'amper-utils/dist/objUtils';
+import { ErrDataCB, ErrorType, Stash } from 'amper-utils/dist/types';
 
 interface CachedData<DataType> {
   inFlight: boolean;
@@ -22,18 +25,18 @@ interface StoredData<DataType> {
 
 interface Props<DataType, ParamsType> {
   name: string;
-  fetchData: (key: string, params: ParamsType, cb: ErrDataCB<DataType>) => void;
+  fetchData: (key: string, params: ParamsType) => Promise<DataType>;
   paramsToCachePath: (key: string, params: ParamsType) => string[] | undefined;
   getExpireDelay?: (key: string) => number;
   refetchOffline?: {
-    offlineCheck: (cb: ErrDataCB<any>) => void;
+    offlineCheck: () => Promise<any>;
     retryTime: number;
   };
 }
 
 export class DataStoreCache<DataType, ParamsType> {
   private cache: Stash = {};
-  private offlineFetches: StashOf<{ key: string, params: ParamsType }> = {};
+  private offlineFetches: Stash<{ key: string, params: ParamsType }> = {};
   private offlineTimer: any;
 
   constructor(readonly props: Props<DataType, ParamsType>) {
@@ -50,7 +53,7 @@ export class DataStoreCache<DataType, ParamsType> {
   }
 
   private tryRefetchOffline = () => {
-    this.props.refetchOffline!.offlineCheck((err, _status) => {
+    withError(this.props.refetchOffline!.offlineCheck()).then(({err}) => {
       this.offlineTimer = undefined;
 
       if (err) {
@@ -69,9 +72,9 @@ export class DataStoreCache<DataType, ParamsType> {
   }
 
   private onResponse(fetchCount: number, cachePath: string[], params: ParamsType, err: ErrorType, data: DataType|undefined) {
-    const obj = Util.objectGetFromPath(this.cache, cachePath) as CachedData<DataType>|undefined;
+    const obj = ObjUtils.objectGetFromPath(this.cache, cachePath) as CachedData<DataType>|undefined;
     if (!obj) {
-      Log.warnNoCtx('@conor', 'DataStoreCache.onResponse.noObj', { cachePath });
+      console.warn('DataStoreCache.onResponse.noObj', { cachePath });
       return;
     }
 
@@ -80,7 +83,7 @@ export class DataStoreCache<DataType, ParamsType> {
       return;
     }
 
-    data = Util.objectMakeImmutable(data);
+    data = ObjUtils.objectMakeImmutable(data);
 
     const key = cachePath[1];
     const errCallbacks = obj.errCallbacks;
@@ -93,7 +96,7 @@ export class DataStoreCache<DataType, ParamsType> {
       obj.expireTime = Infinity;
     }
     obj.data = data;
-    obj.err = err ? Util.errorToString(err, false) : undefined;
+    obj.err = err ? errorToString(err, false) : undefined;
 
     const res: StoredData<DataType> = {
       err: obj.err,
@@ -108,7 +111,7 @@ export class DataStoreCache<DataType, ParamsType> {
       }
     }
 
-    if (this.props.refetchOffline && err && Util.errorToString(err, false) === 'offline') {
+    if (this.props.refetchOffline && err && errorToString(err, false) === 'offline') {
       this.offlineFetches[cachePath.join('/')] = { key, params };
       if (!this.offlineTimer) {
         this.offlineTimer = setTimeout(this.tryRefetchOffline, this.props.refetchOffline.retryTime);
@@ -130,7 +133,7 @@ export class DataStoreCache<DataType, ParamsType> {
       err: undefined,
       errCallbacks: [],
     };
-    Util.objectFillPath(this.cache, cachePath, obj);
+    ObjUtils.objectFillPath(this.cache, cachePath, obj);
 
     this.onResponse(obj.fetchCount, cachePath, params, err, data);
   }
@@ -146,7 +149,7 @@ export class DataStoreCache<DataType, ParamsType> {
       };
     }
 
-    let obj = Util.objectGetFromPath(this.cache, cachePath) as CachedData<DataType>|undefined;
+    let obj = ObjUtils.objectGetFromPath(this.cache, cachePath) as CachedData<DataType>|undefined;
 
     if (!obj) {
       obj = {
@@ -157,7 +160,7 @@ export class DataStoreCache<DataType, ParamsType> {
         err: undefined,
         errCallbacks: [],
       };
-      Util.objectFillPath(this.cache, cachePath, obj);
+      ObjUtils.objectFillPath(this.cache, cachePath, obj);
     }
 
     const isExpired = Date.now() > obj.expireTime;
@@ -169,8 +172,8 @@ export class DataStoreCache<DataType, ParamsType> {
       obj.fetchCount++;
       obj.expireTime = 0;
 
-      this.props.fetchData(key, params, (err, data) => {
-        this.onResponse(obj!.fetchCount, cachePath, params, err, data);
+      withError(this.props.fetchData(key, params)).then(errdata => {
+        this.onResponse(obj!.fetchCount, cachePath, params, errdata.err, errdata.data);
       });
     }
 
@@ -235,7 +238,7 @@ export class DataStoreCache<DataType, ParamsType> {
   invalidate(key: string, params: ParamsType, noClear?: boolean) {
     const cachePath = this.getPath(key, params);
     if (!cachePath) {
-      Log.errorNoCtx('@caller', 'invalidateCache invalid key', { key });
+      console.error('invalidateCache invalid key', { key });
       return;
     }
 
@@ -244,7 +247,7 @@ export class DataStoreCache<DataType, ParamsType> {
       return;
     }
 
-    const obj = Util.objectGetFromPath(this.cache, cachePath);
+    const obj = ObjUtils.objectGetFromPath(this.cache, cachePath);
     if (obj) {
       this.invalidateFetchObj(obj, cachePath, params, noClear);
     }
