@@ -39,7 +39,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.clearPersistedData = exports.persistChange = exports.initBroadcastHandlers = exports.loadDataStore = exports.init = void 0;
+exports.clearPersistedData = exports.persistChange = exports.initBroadcastHandlers = exports.loadDataStore = exports.getFileStore = exports.init = void 0;
 var DataStore = require("./dataStore");
 var index_1 = require("amper-promise-utils/dist/index");
 var ObjSchema = require("amper-schema/dist/objSchema");
@@ -51,6 +51,10 @@ function init(FileStoreIn) {
     FileStore = FileStoreIn;
 }
 exports.init = init;
+function getFileStore() {
+    return FileStore;
+}
+exports.getFileStore = getFileStore;
 function cmpMerges(a, b) {
     if (a.timestamp !== b.timestamp) {
         return a.timestamp - b.timestamp;
@@ -218,7 +222,7 @@ function loadDataStoreInternal(store, windowStorage, loadInfo) {
                     return [4 /*yield*/, (0, index_1.withError)(FileStore.findDir('dsMerges/' + store.storeName + '/'))];
                 case 4:
                     _b = _c.sent(), err2 = _b.err, files = _b.data;
-                    files = files || {};
+                    files = files || { paths: [], objects: [] };
                     if (!loadInfo.failed[store.storeName]) return [3 /*break*/, 6];
                     return [4 /*yield*/, cleanupFiles(files)];
                 case 5: 

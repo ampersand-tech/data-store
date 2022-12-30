@@ -5,21 +5,10 @@
 import * as DataStore from './dataStore';
 import { IDS_MASK } from './dataStore';
 
+import { ResolvablePromise } from 'amper-promise-utils/dist/index';
 import { deepCompare, isObject } from 'amper-utils/dist/objUtils';
 import { Stash } from 'amper-utils/dist/types';
 
-class ResolvablePromise<T> {
-  promise: Promise<T>;
-  resolve: (value: T | PromiseLike<T>) => void;
-  reject: (reason?: any) => void;
-
-  constructor() {
-    this.promise = new Promise((resolve, reject) => {
-      this.resolve = resolve;
-      this.reject = reject;
-    });
-  }
-}
 interface WatchTree {
   _watches ?: Watch[];
   [key: string]: WatchTree | Watch[] | undefined;

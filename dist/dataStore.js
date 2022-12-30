@@ -74,17 +74,15 @@ var gDataStores = {};
 var gDataLoaded = false;
 var gWatchTracker;
 var gCodeWatchers = [];
-var windowReadAll;
 var gDebug = {
     ds: {},
     dss: {},
 };
-function init(windowReadAllIn, requestAnimationFrameIn, isTestClient, debugIn) {
-    DataStoreWatch.init(requestAnimationFrameIn, isTestClient);
-    windowReadAll = windowReadAllIn;
-    if (debugIn) {
-        ObjUtils.copyFields(gDebug, debugIn);
-        gDebug = debugIn;
+function init(params) {
+    DataStoreWatch.init(params.requestAnimationFrame, params.isTestClient);
+    if (params.debugObj) {
+        ObjUtils.copyFields(gDebug, params.debugObj);
+        gDebug = params.debugObj;
     }
 }
 exports.init = init;
@@ -174,7 +172,7 @@ function loadDataStores() {
                         failed: {},
                         noData: {},
                     };
-                    return [4 /*yield*/, (0, amper_promise_utils_1.withError)(windowReadAll())];
+                    return [4 /*yield*/, (0, amper_promise_utils_1.withError)(DataStorePersist.getFileStore().windowReadAll())];
                 case 1:
                     _a = _e.sent(), err = _a.err, windowStorage = _a.data;
                     if (err) {

@@ -42,17 +42,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.hasWatchesInTree = exports.countWatches = exports.getTriggeredWatches = exports.destroyDataReactor = exports.createDataReactor = exports.destroyWatcher = exports.pruneUnusedWatches = exports.resetWatches = exports.removeWatch = exports.findWatch = exports.addWatchInternal = exports.createWatcher = exports.flushWatches = exports.triggerWatchesNextFrame = exports.addToPending = exports.createWatchTracker = exports.isDataWatcher = exports.init = void 0;
 var DataStore = require("./dataStore");
 var dataStore_1 = require("./dataStore");
+var index_1 = require("amper-promise-utils/dist/index");
 var objUtils_1 = require("amper-utils/dist/objUtils");
-var ResolvablePromise = /** @class */ (function () {
-    function ResolvablePromise() {
-        var _this = this;
-        this.promise = new Promise(function (resolve, reject) {
-            _this.resolve = resolve;
-            _this.reject = reject;
-        });
-    }
-    return ResolvablePromise;
-}());
 var gPendingTriggers = [];
 var gWatchRafHandle = null;
 var gFlushWatchesPromise;
@@ -125,7 +116,7 @@ function flushWatches() {
                     if (!gPendingTriggers.length) {
                         return [2 /*return*/];
                     }
-                    p = gFlushWatchesPromise = new ResolvablePromise();
+                    p = gFlushWatchesPromise = new index_1.ResolvablePromise();
                     triggerWatchesNextFrame();
                     return [4 /*yield*/, p.promise];
                 case 1:

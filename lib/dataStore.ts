@@ -75,18 +75,16 @@ let gWatchTracker: DataStoreWatch.WatchTracker;
 
 const gCodeWatchers: Watcher[] = [];
 
-let windowReadAll;
 let gDebug = {
   ds: {},
   dss: {},
 };
 
-export function init(windowReadAllIn?: any, requestAnimationFrameIn?: any, isTestClient?: any, debugIn?: any) {
-  DataStoreWatch.init(requestAnimationFrameIn, isTestClient);
-  windowReadAll = windowReadAllIn;
-  if (debugIn) {
-    ObjUtils.copyFields(gDebug, debugIn);
-    gDebug = debugIn;
+export function init(params: { requestAnimationFrame?: any, isTestClient?: any, debugObj?: any }) {
+  DataStoreWatch.init(params.requestAnimationFrame, params.isTestClient);
+  if (params.debugObj) {
+    ObjUtils.copyFields(gDebug, params.debugObj);
+    gDebug = params.debugObj;
   }
 }
 
@@ -204,7 +202,7 @@ export async function loadDataStores(): Promise<DataStorePersist.LoadInfo> {
     noData: {},
   };
 
-  const { err, data: windowStorage } = await withError(windowReadAll());
+  const { err, data: windowStorage } = await withError(DataStorePersist.getFileStore().windowReadAll());
   if (err) {
     console.error('loadDataStores.windowReadAll.error', {err});
   }

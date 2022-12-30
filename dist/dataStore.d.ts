@@ -29,7 +29,11 @@ export declare const IDS_MASK: Readonly<{
     _ids: number;
 }>;
 export declare const ALL_MASK: "*";
-export declare function init(windowReadAllIn?: any, requestAnimationFrameIn?: any, isTestClient?: any, debugIn?: any): void;
+export declare function init(params: {
+    requestAnimationFrame?: any;
+    isTestClient?: any;
+    debugObj?: any;
+}): void;
 export declare function getWatchTracker(): DataStoreWatch.WatchTracker;
 export declare function validateMask(funcName: string, path: string[], objMask: any): void;
 export interface DataStoreInternal {

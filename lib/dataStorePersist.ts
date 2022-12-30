@@ -33,24 +33,36 @@ export interface LoadInfo {
   noData: Stash<boolean>;
 }
 
-export interface FileStoreInterface {
-  find: (key: string) => Promise<any>;
-  findDir: (key: string) => Promise<Stash>;
-  update: (key: string, data: any) => Promise<void>;
-  remove: (key: string) => Promise<void>;
-  removeList: (keys: string[]) => Promise<void>;
-  removeDir: (key: string) => Promise<void>;
+export interface FindDirData<T> {
+  paths: string[];
+  objects: T[];
+  errors?: any;
+}
 
-  windowWrite: (key: string, data: any) => void;
+export interface IFileStore {
+  find<T>(key: string): Promise<T|undefined>;
+  findDir<T>(key: string): Promise<FindDirData<T>>;
+  update(key: string, data: any): Promise<void>;
+  remove(key: string): Promise<void>;
+  removeList(keys: string[]): Promise<void>;
+  removeDir(key: string): Promise<void>;
+  removeAllExcept(exceptKeys: string[]): Promise<void>;
+
+  windowReadAll(): Promise<Stash>;
+  windowWrite(key: string, data: any): Promise<void>;
 
   registerLocalMessageHandler: (msgName: string, handler: (msg: string, payload: any) => void) => void;
   localBroadcast: (msgName: string, payload: any) => void;
 }
 
-let FileStore: FileStoreInterface;
+let FileStore: IFileStore;
 
-export function init(FileStoreIn: FileStoreInterface) {
+export function init(FileStoreIn: IFileStore) {
   FileStore = FileStoreIn;
+}
+
+export function getFileStore() {
+  return FileStore;
 }
 
 function cmpMerges(a: MergeCmpData, b: MergeCmpData) {
@@ -85,7 +97,7 @@ async function validateTable(store: DataStoreInternal, data: any, loadInfo: Load
   return false;
 }
 
-async function cleanupFiles(files: Stash) {
+async function cleanupFiles(files: FindDirData<any>) {
   if (!files) {
     return;
   }
@@ -110,7 +122,7 @@ async function validateAndApplyData(store: DataStoreInternal, loadedData: any, l
   }
 }
 
-async function mergeChanges(store: DataStoreInternal, files: Stash, loadInfo: LoadInfo) {
+async function mergeChanges(store: DataStoreInternal, files: FindDirData<any>, loadInfo: LoadInfo) {
   const mergeList: MergeData[] = files.objects;
   mergeList.sort(cmpMerges);
 
@@ -175,7 +187,7 @@ async function loadDataStoreInternal(store: DataStoreInternal, windowStorage: St
     return;
   }
 
-  let { err: loadError, data: loadedData } = await withError(FileStore.find('dsData/' + store.storeName));
+  let { err: loadError, data: loadedData } = await withError(FileStore.find<any>('dsData/' + store.storeName));
   loadedData = loadedData || {};
 
   if (loadError) {
@@ -188,8 +200,8 @@ async function loadDataStoreInternal(store: DataStoreInternal, windowStorage: St
     store.lastMerge = loadedData.lastMerge;
   }
 
-  let { err: err2, data: files } = await withError(FileStore.findDir('dsMerges/' + store.storeName + '/'));
-  files = files || {};
+  let { err: err2, data: files } = await withError(FileStore.findDir<any>('dsMerges/' + store.storeName + '/'));
+  files = files || { paths: [], objects: [] };
   if (loadInfo.failed[store.storeName]) {
     // store data failed to load, delete the merge files and abort
     return await cleanupFiles(files);
