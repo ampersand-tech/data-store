@@ -116,13 +116,13 @@ acorn@^8.4.1:
 
 "amper-schema@git+ssh://git@github.com:ampersand-tech/amper-schema.git":
   version "1.1.0"
-  resolved "git+ssh://git@github.com:ampersand-tech/amper-schema.git#4d75db2eef996dc08f0febab130cecaf8f02ba06"
+  resolved "git+ssh://git@github.com:ampersand-tech/amper-schema.git#83f7ac9a2e6e887667cf2786235096ab57c9ffc0"
   dependencies:
     amper-utils "git+ssh://git@github.com:ampersand-tech/amper-utils.git"
 
 "amper-utils@git+ssh://git@github.com:ampersand-tech/amper-utils.git":
-  version "1.1.0"
-  resolved "git+ssh://git@github.com:ampersand-tech/amper-utils.git#052bc009ff4a2e1182c49506b7f5247af0b56454"
+  version "1.1.1"
+  resolved "git+ssh://git@github.com:ampersand-tech/amper-utils.git#843d7e7a279fbcbf4ebee796d8be68be63ee8b57"
 
 arg@^4.1.0:
   version "4.1.3"
