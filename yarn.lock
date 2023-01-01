@@ -139,8 +139,8 @@ acorn@^8.4.1:
   integrity sha512-7zFpHzhnqYKrkYdUjF1HI1bzd0VygEGX8lFk4k5zVMqHEoES+P+7TKI+EvLO9WVMJ8eekdO0aDEK044xTXwPPA==
 
 "amper-promise-utils@git+ssh://git@github.com:ampersand-tech/amper-promise-utils.git":
-  version "1.2.0"
-  resolved "git+ssh://git@github.com:ampersand-tech/amper-promise-utils.git#ffee9ece86fd310aa389f94bc70f3e185eacb15a"
+  version "1.3.0"
+  resolved "git+ssh://git@github.com:ampersand-tech/amper-promise-utils.git#cb80c30998f95e3a395568726fead8dd7e3c45a1"
 
 "amper-schema@git+ssh://git@github.com:ampersand-tech/amper-schema.git":
   version "1.1.1"

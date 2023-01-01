@@ -40,6 +40,9 @@ export interface FindDirData<T> {
 }
 
 export interface IFileStore {
+  registerLocalMessageHandler: (msgName: string, handler: (msg: string, payload: any) => void) => void;
+  localBroadcast: (msgName: string, payload: any) => void;
+
   find<T>(key: string): Promise<T|undefined>;
   findDir<T>(key: string): Promise<FindDirData<T>>;
   update(key: string, data: any): Promise<void>;
@@ -50,9 +53,6 @@ export interface IFileStore {
 
   windowReadAll(): Promise<Stash>;
   windowWrite(key: string, data: any): Promise<void>;
-
-  registerLocalMessageHandler: (msgName: string, handler: (msg: string, payload: any) => void) => void;
-  localBroadcast: (msgName: string, payload: any) => void;
 }
 
 let FileStore: IFileStore;
