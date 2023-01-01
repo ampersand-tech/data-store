@@ -54,7 +54,7 @@ export interface Options {
 export const IDS_MASK = ObjUtils.objectMakeImmutable({ _ids: 1 });
 export const ALL_MASK = '*' as '*';
 
-function cloneWithMask(obj, objMask, defaults) {
+export function cloneWithMask(obj, objMask, defaults) {
   if (objMask === IDS_MASK && obj && typeof obj === 'object') {
     // fast path for IDS_MASK
     const out = {};

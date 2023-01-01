@@ -18,7 +18,7 @@ interface CachedData<DataType> {
   errCallbacks: ErrDataCB<any>[];
 }
 
-interface StoredData<DataType> {
+export interface StoredData<DataType> {
   data: DataType|undefined;
   err: string|undefined;
 }
@@ -140,7 +140,7 @@ export class DataStoreCache<DataType, ParamsType> {
 
   // note: errCB gets called ONLY if a fetch gets triggered, so that you don't toast multiple times for the same error
   // if you want to render the error, use the return value instead
-  getDataWithError(watcher: DataStore.WatcherOpt, key: string, params: ParamsType, errCB?: ErrDataCB<any>) {
+  getDataWithError(watcher: DataStore.WatcherOpt, key: string, params: ParamsType, errCB?: ErrDataCB<any>): StoredData<DataType> {
     const cachePath = this.getPath(key, params);
     if (!cachePath) {
       return {
