@@ -29,6 +29,7 @@ export declare const IDS_MASK: Readonly<{
     _ids: number;
 }>;
 export declare const ALL_MASK: "*";
+export declare function cloneWithMask(obj: any, objMask: any, defaults: any): {};
 export declare function init(params: {
     requestAnimationFrame?: any;
     isTestClient?: any;

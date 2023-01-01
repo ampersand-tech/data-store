@@ -3,7 +3,7 @@
 */
 import * as DataStore from './dataStore';
 import { ErrDataCB, ErrorType } from 'amper-utils/dist/types';
-interface StoredData<DataType> {
+export interface StoredData<DataType> {
     data: DataType | undefined;
     err: string | undefined;
 }

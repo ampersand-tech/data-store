@@ -39,7 +39,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.test = exports.removeDataNoClone = exports.replaceDataNoClone = exports.upsertDataNoClone = exports.updateDataNoClone = exports.createDataNoClone = exports.removeData = exports.replaceData = exports.upsertData = exports.updateData = exports.createData = exports.getSchema = exports.removeCodeWatch = exports.addCodeWatch = exports.addWatch = exports.hasAnyWatches = exports.hasWatches = exports.toggleBool = exports.changeData = exports.changeDataNoClone = exports.changeDataAsInternal = exports.changeServerData = exports.changeServerDataAsInternal = exports.resetClientToServer = exports.resetServerChangeTree = exports.getServerDataUnsafe = exports.getDataNoOverlay = exports.getData = exports.getDataUnsafe = exports.hasData = exports.hasDataStore = exports.resetStoreToDefaultsAsInternal = exports.resetToDefaults = exports.loadDataStores = exports.registerDataStore = exports.validateMask = exports.getWatchTracker = exports.init = exports.ALL_MASK = exports.IDS_MASK = void 0;
+exports.test = exports.removeDataNoClone = exports.replaceDataNoClone = exports.upsertDataNoClone = exports.updateDataNoClone = exports.createDataNoClone = exports.removeData = exports.replaceData = exports.upsertData = exports.updateData = exports.createData = exports.getSchema = exports.removeCodeWatch = exports.addCodeWatch = exports.addWatch = exports.hasAnyWatches = exports.hasWatches = exports.toggleBool = exports.changeData = exports.changeDataNoClone = exports.changeDataAsInternal = exports.changeServerData = exports.changeServerDataAsInternal = exports.resetClientToServer = exports.resetServerChangeTree = exports.getServerDataUnsafe = exports.getDataNoOverlay = exports.getData = exports.getDataUnsafe = exports.hasData = exports.hasDataStore = exports.resetStoreToDefaultsAsInternal = exports.resetToDefaults = exports.loadDataStores = exports.registerDataStore = exports.validateMask = exports.getWatchTracker = exports.init = exports.cloneWithMask = exports.ALL_MASK = exports.IDS_MASK = void 0;
 var DataStorePersist = require("./dataStorePersist");
 var DataStoreWatch = require("./dataStoreWatch");
 var ObjMerge = require("./objMerge");
@@ -70,6 +70,7 @@ function cloneWithMask(obj, objMask, defaults) {
     }
     return ObjUtils.cloneSomeFieldsImmutable(obj, objMask, defaults);
 }
+exports.cloneWithMask = cloneWithMask;
 var gDataStores = {};
 var gDataLoaded = false;
 var gWatchTracker;
