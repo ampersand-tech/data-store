@@ -14,6 +14,8 @@ export interface FindDirData<T> {
     errors?: any;
 }
 export interface IFileStore {
+    registerLocalMessageHandler: (msgName: string, handler: (msg: string, payload: any) => void) => void;
+    localBroadcast: (msgName: string, payload: any) => void;
     find<T>(key: string): Promise<T | undefined>;
     findDir<T>(key: string): Promise<FindDirData<T>>;
     update(key: string, data: any): Promise<void>;
@@ -23,8 +25,6 @@ export interface IFileStore {
     removeAllExcept(exceptKeys: string[]): Promise<void>;
     windowReadAll(): Promise<Stash>;
     windowWrite(key: string, data: any): Promise<void>;
-    registerLocalMessageHandler: (msgName: string, handler: (msg: string, payload: any) => void) => void;
-    localBroadcast: (msgName: string, payload: any) => void;
 }
 export declare function init(FileStoreIn: IFileStore): void;
 export declare function getFileStore(): IFileStore;
